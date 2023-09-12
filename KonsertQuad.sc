@@ -11,16 +11,16 @@
 //panBusC -- skickar ljud till \pannerCircle
 //panBusD -- skickar ljud till \discreteOut som spelas av en Pbindef(\panning)
 
-Konsert1 {
+KonsertQuad {
 	var server;
 	var synth, device, <synthGroup, <fxGroup, <panGroup, <voiceBuf, <a1Bus, <a2Bus, <outBus1, <outBus2, <bBus, <vBus, <sawBus, <outBus, <vocBus, <vocBusOut, <revBus, <panBusSaw, <panBus, <panBusC, <panBusD, <midiBus, delBus, masterBus, masterSynth, gator_s, out_s, korg_s, moog_s, mic_s, klank_s, reverb_s, delay_s, panner_s;
 	var fxAssignments;
 
 	*new { //klassmetod
-		^super.new.initKonsert1;
+		^super.new.initKonsertQuad;
 	}
 
-	initKonsert1 { //instansmetod
+	initKonsertQuad { //instansmetod
 		server = Server.default;
 		MIDIClient.init;
 		server.options.device = "UltraLite-mk4";
@@ -34,7 +34,7 @@ Konsert1 {
 		server.options.sampleRate = 48000;
 
 		server.waitForBoot{
-			Konsert1.sendSynthDefs(server.options.device);
+			KonsertQuad.sendSynthDefs(server.options.device);
 			server.sync;
 			//~bdkrev = Buffer.readChannel(server,"/Users/adele21/Documents/SuperCollider/klangwürfel-lead you home/lead_you_home_rev_rec_1.aiff", channels:[0]);
 			//~perc = Buffer.readChannel(server,"/Users/adele21/Documents/SuperCollider/Mobilen/ljuden/12-Wood_Block.wav", channels: [0]);
