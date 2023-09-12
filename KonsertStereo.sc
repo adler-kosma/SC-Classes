@@ -4,7 +4,6 @@
 //bBus -- gator slave
 //vBus -- gator vocal
 //outBus -- no gator
-//vocBus -- vocal to stereo out through noGator
 ///////////RoutingSynth////////////////////
 //panBusOut -- skickar ljud till stereo genom \stereoOut
 //panBusOutAz -- skickar ljud till \panAzStereo
@@ -12,7 +11,7 @@
 
 KonsertStereo {
 	var server;
-	var synth, device, <synthGroup, <fxGroup, <panGroup, <voiceBuf, <a1Bus, <a2Bus, <outBus1, <outBus2, <bBus, <vBus, <sawBus, <outBus, <vocBus, <revBus, <panBusOutSaw, <panBusOut, <panBusOutAz, <panBusOutD, <midiBus, delBus, masterBus, masterSynth, gator_s, out_s, korg_s, moog_s, mic_s, klank_s, reverb_s, delay_s, panner_s;
+	var synth, device, <synthGroup, <fxGroup, <panGroup, <voiceBuf, <a1Bus, <a2Bus, <outBus1, <outBus2, <bBus, <vBus, <sawBus, <outBus, <revBus, <panBusOutSaw, <panBusOut, <panBusOutAz, <panBusOutD, <midiBus, delBus, masterBus, masterSynth, gator_s, out_s, korg_s, moog_s, mic_s, klank_s, reverb_s, delay_s, panner_s;
 	var fxAssignments;
 
 	*new { //klassmetod
@@ -43,7 +42,6 @@ KonsertStereo {
 			bBus = Bus.audio(server, 1); // slave
 			vBus = Bus.audio(server, 1); // vocals to gator
 			sawBus = Bus.audio(server, 1); // saw to reverb
-			vocBus = Bus.audio(server, 1); // vocals pass gator
 			revBus = Bus.audio(server, 1); //reverb
 			panBusOutSaw = Bus.audio(server, 1); //panning for saw
 			panBusOut = Bus.audio(server, 1); //panning to all channels
@@ -109,11 +107,9 @@ KonsertStereo {
 			});
 
 			SynthDef(\klank, {
-				arg outBus, i_freq=200, atk=0.1, /*sus=1, */rel=0.6, amp1=0.5, val=466.16;
+				arg outBus, i_freq=200, atk=0.1, rel=0.6, amp1=0.5, val=466.16;
 				var klank, n, harm, amp, ring, env;
-				env = EnvGen.ar(Env.perc(atk, rel), doneAction:2);/*
-				Env([0,1,0],[atk,sus,rel]), gate,
-				doneAction:2);*/
+				env = EnvGen.ar(Env.perc(atk, rel), doneAction:2);
 				harm = \harm.ir(Array.series(4, 1, 1));
 				amp = \amp.ir(Array.fill(4, 0.05));
 				ring = \ring.ir(Array.fill(4, 1));
@@ -195,13 +191,11 @@ KonsertStereo {
 			}).add;
 
 			SynthDef(\noGator, {
-				arg inBus, inBusV, outBus, outBusV, revOut, revVoxAmp=0.5, revInpAmp=0.7;
-				var input, vocal;
+				arg inBus, outBus, revOut, revInpAmp=0.7;
+				var input;
 				input = In.ar(inBus);
-				vocal = In.ar(inBusV);
 				Out.ar(outBus, input);
-				Out.ar(outBusV, vocal);
-				Out.ar(revOut, (input*revInpAmp + vocal*revVoxAmp));
+				Out.ar(revOut, input*revInpAmp;
 			}).add;
 
 
