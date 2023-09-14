@@ -195,7 +195,7 @@ KonsertStereo {
 				var input;
 				input = In.ar(inBus);
 				Out.ar(outBus, input);
-				Out.ar(revOut, input*revInpAmp;
+				Out.ar(revOut, input*revInpAmp);
 			}).add;
 
 
