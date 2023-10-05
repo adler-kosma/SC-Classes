@@ -2,7 +2,6 @@
 ///////////Ljudkälla////////////////////
 //aBus -- gator main
 //bBus -- gator slave
-//vBus -- gator vocal
 //outBus -- no gator
 ///////////RoutingSynth////////////////////
 //panBusOut -- skickar ljud till stereo genom \stereoOut
@@ -11,7 +10,7 @@
 
 KonsertStereo {
 	var server;
-	var synth, device, <synthGroup, <fxGroup, <panGroup, <voiceBuf, <a1Bus, <a2Bus, <outBus1, <outBus2, <bBus, <vBus, <sawBus, <outBus, <revBus, <panBusOutSaw, <panBusOut, <panBusOutAz, <panBusOutD, <midiBus, delBus, masterBus, masterSynth, gator_s, out_s, korg_s, moog_s, mic_s, klank_s, reverb_s, delay_s, panner_s;
+	var synth, device, <synthGroup, <fxGroup, <panGroup, <voiceBuf, <aBus, <outBus1, <outBus2, <bBus, <sawBus, <outBus, <revBus, <panBusOutSaw, <panBusOut, <panBusOutAz, <panBusOutD, <midiBus, delBus, masterBus, masterSynth, gator_s, out_s, korg_s, moog_s, mic_s, klank_s, reverb_s, delay_s, panner_s;
 	var fxAssignments;
 
 	*new { //klassmetod
@@ -35,12 +34,10 @@ KonsertStereo {
 			KonsertStereo.sendSynthDefs(server.options.device);
 			server.sync;
 			voiceBuf = Buffer.alloc(server, server.sampleRate * 90, 1);
-			a1Bus = Bus.audio(server, 1); // master1
-			a2Bus = Bus.audio(server, 1); // master2
+			aBus = Bus.audio(server, 1); // master1
 			outBus1 = Bus.audio(server, 1); // master1 out
 			outBus2 = Bus.audio(server, 1); // master2 out
 			bBus = Bus.audio(server, 1); // slave
-			vBus = Bus.audio(server, 1); // vocals to gator
 			sawBus = Bus.audio(server, 1); // saw to reverb
 			revBus = Bus.audio(server, 1); //reverb
 			panBusOutSaw = Bus.audio(server, 1); //panning for saw
@@ -128,20 +125,15 @@ KonsertStereo {
 			}).add;
 
 			SynthDef(\gator,  {
-				arg inBusA1, inBusA2, inBusB, gate=1, lag=10, clampTime=0.01, relaxTime=0.1, thresh=0.5,
-				slopeBelow=3, slopeAbove=1, outBus1, outBus2, revOut, delOut, revAmp=0.5;
-				var kick1, kick2, pads, vocal, snd1, snd2, env, outSig, outSig1, outSig2;
+				arg inBusA, inBusB, gate=1, lag=6, clampTime=0.01, relaxTime=0.1, thresh=0.5,
+				slopeBelow=3, slopeAbove=1, outBus, revOut, delOut, revAmp=0.5;
+				var control, input, snd, env, outSig;
 				env = EnvGen.kr(Env.asr(), gate, doneAction: 2);
-				kick1 = In.ar(inBusA1, 1);
-				kick2 = In.ar(inBusA2, 1);
-				pads = In.ar(inBusB, 1);
-				snd1 = Compander.ar(pads, kick1, thresh, slopeBelow, slopeAbove, clampTime.lag(lag), relaxTime.lag(lag));
-				snd2 = Compander.ar(pads, kick2, thresh, slopeBelow, slopeAbove, clampTime.lag(lag), relaxTime.lag(lag));
-				outSig1 = (kick1 + snd1) * env;
-				outSig2 = (kick2 + snd2) * env;
-				outSig = (outSig1 + outSig2);
-				Out.ar(outBus1, outSig1);
-				Out.ar(outBus2, outSig2);
+				control = In.ar(inBusA, 1);
+				input = In.ar(inBusB, 1);
+				snd = Compander.ar(input, control, thresh, slopeBelow, slopeAbove, clampTime.lag(lag), relaxTime.lag(lag));
+				outSig = (control + snd) * env;
+				Out.ar(outBus, outSig);
 				Out.ar(revOut, outSig*revAmp);
 			}).add;
 
@@ -181,17 +173,17 @@ KonsertStereo {
 			}).add;
 
 			SynthDef(\stereoOut, {
-				arg inBus, outBus, gate=1;
+				arg inBus, outBus, gate=1, center=0.0;
 				var input, signal, env;
 				env = EnvGen.kr(Env.asr(), gate, doneAction: 2);
 				input = In.ar(inBus, 1) * env;
 				signal = input;
-				signal = Splay.ar(signal);
+				signal = Splay.ar(signal, center: center);
 				Out.ar(outBus, signal);
 			}).add;
 
 			SynthDef(\noGator, {
-				arg inBus, outBus, revOut, revInpAmp=0.7;
+				arg inBus, outBus, revOut, revInpAmp=0.5;
 				var input;
 				input = In.ar(inBus);
 				Out.ar(outBus, input);
