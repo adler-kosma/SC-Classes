@@ -103,6 +103,14 @@ KonsertStereo {
 				}).add;
 			});
 
+			SynthDef(\playBackBuf, {
+				arg outBus=0, bufNum, start=0, done=2, freq=800, loop=1, pos=(-1), centerFreq=2000, bw=1, amp=1;
+				var buffer, outSig;
+				buffer = PlayBuf.ar(1, bufNum, BufRateScale.kr(bufNum), 1, start, loop, doneAction:done) * amp;
+				buffer = BBandPass.ar(buffer, centerFreq, bw);
+				Out.ar(outBus, buffer);
+			}).add;
+
 			SynthDef(\klank, {
 				arg outBus, i_freq=200, atk=0.1, rel=0.6, amp1=0.5, val=466.16;
 				var klank, n, harm, amp, ring, env;
