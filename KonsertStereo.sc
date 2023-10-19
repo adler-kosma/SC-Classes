@@ -33,6 +33,8 @@ KonsertStereo {
 		server.waitForBoot{
 			KonsertStereo.sendSynthDefs(server.options.device);
 			server.sync;
+			~bluntNoiseBuf = Buffer.readChannel(server,"/Users/adelekosman/Music/Music/BluntNoise.wav", channels:[0]);
+			~toPiecesChoir = Buffer.readChannel(server, "/Users/adelekosman/Music/Music/topieces_choir24.wav", channels:[0,1]);
 			voiceBuf = Buffer.alloc(server, server.sampleRate * 90, 1);
 			aBus = Bus.audio(server, 1); // master1
 			outBus1 = Bus.audio(server, 1); // master1 out
@@ -104,10 +106,16 @@ KonsertStereo {
 			});
 
 			SynthDef(\playBackBuf, {
-				arg outBus=0, bufNum, start=0, done=2, freq=800, loop=1, pos=(-1), centerFreq=2000, bw=1, amp=1;
-				var buffer, outSig;
-				buffer = PlayBuf.ar(1, bufNum, BufRateScale.kr(bufNum), 1, start, loop, doneAction:done) * amp;
-				buffer = BBandPass.ar(buffer, centerFreq, bw);
+				arg outBus=0, buf, done=2, loop=0, amp=1, rate=1;
+				var buffer;
+				buffer = PlayBuf.ar(2, buf, BufRateScale.kr(buf) * rate, loop:loop, doneAction:done) * amp;
+				Out.ar(outBus, buffer);
+			}).add;
+
+			SynthDef(\playBackBufMono, {
+				arg outBus=0, buf, done=2, loop=1, amp=1, rate=1;
+				var buffer;
+				buffer = PlayBuf.ar(1, buf, BufRateScale.kr(buf) * rate, loop:loop, doneAction:done) * amp;
 				Out.ar(outBus, buffer);
 			}).add;
 
@@ -133,14 +141,14 @@ KonsertStereo {
 			}).add;
 
 			SynthDef(\gator,  {
-				arg inBusA, inBusB, gate=1, lag=6, clampTime=0.01, relaxTime=0.1, thresh=0.5,
-				slopeBelow=3, slopeAbove=1, outBus, revOut, delOut, revAmp=0.5;
+				arg inBusA, inBusB, gate=1, lag=6, clampTime=0.01, relaxTime=0.1,
+				thresh=0.5, slopeBelow=3, slopeAbove=1, outBus=0, revOut, delOut, revAmp=0.5, spread=1, lfrate=0.05;
 				var control, input, snd, env, outSig;
 				env = EnvGen.kr(Env.asr(), gate, doneAction: 2);
 				control = In.ar(inBusA, 1);
 				input = In.ar(inBusB, 1);
 				snd = Compander.ar(input, control, thresh, slopeBelow, slopeAbove, clampTime.lag(lag), relaxTime.lag(lag));
-				outSig = (control + snd) * env;
+				outSig = Splay.ar([control + snd], spread, center:LFTri.kr(lfrate));
 				Out.ar(outBus, outSig);
 				Out.ar(revOut, outSig*revAmp);
 			}).add;
