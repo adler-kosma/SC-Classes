@@ -10,7 +10,7 @@
 
 KonsertStereo {
 	var server;
-	var synth, device, <synthGroup, <fxGroup, <panGroup, <voiceBuf, <aBus, <outBus1, <outBus2, <bBus, <sawBus, <outBus, <revBus, <panBusOutSaw, <panBusOut, <panBusOutAz, <panBusOutD, <midiBus, delBus, masterBus, masterSynth, gator_s, out_s, korg_s, moog_s, mic_s, klank_s, reverb_s, delay_s, panner_s;
+	var synth, device, <synthGroup, <fxGroup, <panGroup, <voiceBuf, <aBus, <revBusVox, <bBus, <outBus, <revBus, <panBusOut, <midiBus, delBus, gator_s, out_s, korg_s, moog_s, mic_s, klank_s, reverb_s, delay_s, panner_s;
 	var fxAssignments;
 
 	*new { //klassmetod
@@ -33,26 +33,21 @@ KonsertStereo {
 		server.waitForBoot{
 			KonsertStereo.sendSynthDefs(server.options.device);
 			server.sync;
-			~bluntNoiseBuf = Buffer.readChannel(server,"/Users/adelekosman/Music/Music/BluntNoise.wav", channels:[0]);
-			~toPiecesChoir = Buffer.readChannel(server, "/Users/adelekosman/Music/Music/topieces_choir24.wav", channels:[0,1]);
+			~bluntNoiseBuf = Buffer.readChannel(server,"/Users/adele21/Music/Music/BluntNoise.wav", channels:[0]);
+			~lostBitsDrumsBuf = Buffer.readChannel(server,"/Users/adele21/Music/Music/lostbits-drums-mono.wav", channels:[0]);
+			~toPiecesChoirBuf = Buffer.readChannel(server, "/Users/adele21/Music/Music/topieces_choir.wav", channels:[0,1]);
+			~toPiecesChoirBufRev = Buffer.readChannel(server, "/Users/adele21/Music/Music/topieces_choir.wav", channels:[0]);
 			voiceBuf = Buffer.alloc(server, server.sampleRate * 90, 1);
 			aBus = Bus.audio(server, 1); // master1
-			outBus1 = Bus.audio(server, 1); // master1 out
-			outBus2 = Bus.audio(server, 1); // master2 out
 			bBus = Bus.audio(server, 1); // slave
-			sawBus = Bus.audio(server, 1); // saw to reverb
 			revBus = Bus.audio(server, 1); //reverb
-			panBusOutSaw = Bus.audio(server, 1); //panning for saw
-			panBusOut = Bus.audio(server, 1); //panning to all channels
-			panBusOutAz = Bus.audio(server, 1); //panning circle
-			panBusOutD = Bus.audio(server, 1); //panning discrete
-			outBus = Bus.audio(server, 1); //routing passed gator through reverb
+			revBusVox = Bus.audio(server, 1); //reverb
+			panBusOut = Bus.audio(server, 1);
+			outBus = Bus.audio(server, 1); //routing passed gator through
 			delBus = Bus.audio(server, 1); //delay
-			masterBus  = Bus.audio(server, 4);
 			synthGroup = Group.new(server);
 			fxGroup = Group.after(synthGroup);
 			panGroup = Group.after(fxGroup);
-			masterSynth = Synth.after(panGroup, \master, [\inBus, 0]);
 			server.options.numOutputBusChannels = 10;
 			server.options.numInputBusChannels = 4;
 			server.recChannels = 8;
@@ -79,13 +74,20 @@ KonsertStereo {
 		(
 			if(device == "UltraLite-mk4", {
 				SynthDef.new(\mic,{
-					arg inBus, outBus, amp=1, freq=293.67, modMix=0;
+					arg inBus, outBus, outBusRev, amp=1;
+					var input;
+					input = SoundIn.ar(inBus) * amp;
+					Out.ar(outBus, input);
+					Out.ar(outBusRev, input);
+				}).add;
+
+				SynthDef.new(\micStereo,{
+					arg inBus, outBus, amp=1, revAmp=0.5, outBusRev, highPass=400;
 					var input, sig, rmod;
 					input = SoundIn.ar(inBus) * amp;
-					rmod = input * SinOsc.ar(freq);
-					sig = input + (rmod * modMix);
-					sig = HPF.ar(sig, 400);
+					sig = HPF.ar(input, highPass);
 					Out.ar(outBus, sig);
+					Out.ar(outBusRev, sig * revAmp);
 				}).add;
 
 				SynthDef.new(\moog, {
@@ -120,37 +122,26 @@ KonsertStereo {
 			}).add;
 
 			SynthDef(\klank, {
-				arg outBus, i_freq=200, atk=0.1, rel=0.6, amp1=0.5, val=466.16;
+				arg ut=0, i_freq=200, atk=0.1, rel=0.6, amp1=0.5, val=466.16;
 				var klank, n, harm, amp, ring, env;
 				env = EnvGen.ar(Env.perc(atk, rel), doneAction:2);
 				harm = \harm.ir(Array.series(4, 1, 1));
 				amp = \amp.ir(Array.fill(4, 0.05));
 				ring = \ring.ir(Array.fill(4, 1));
 				klank = Klank.ar(`[harm, amp, ring], {SinOsc.ar(val)*0.03}.dup, i_freq) * env * amp1;
-				Out.ar(outBus, klank);
-			}).add;
-
-			SynthDef(\saw, {
-				arg gate=1, amp=0.01, freq=440, atk=0.1, sus=1, rel=0.5, freqF=800, outBus;
-				var env, sig, filter;
-				env = EnvGen.kr(Env.asr(atk, sus, rel), gate, doneAction:2);
-				sig = Saw.ar(freq) * amp;
-				filter = LPF.ar(sig, freqF);
-				sig = filter * env;
-				Out.ar(outBus, sig);
+				Out.ar(ut, klank);
 			}).add;
 
 			SynthDef(\gator,  {
 				arg inBusA, inBusB, gate=1, lag=6, clampTime=0.01, relaxTime=0.1,
-				thresh=0.5, slopeBelow=3, slopeAbove=1, outBus=0, revOut, delOut, revAmp=0.5, spread=1, lfrate=0.05;
-				var control, input, snd, env, outSig;
+				thresh=0.5, slopeBelow=3, slopeAbove=1, outBus=0, delOut, revAmp=0.5, spread=1, lfrate=0.05;
+				var control, input, snd, sndV, env, outSig;
 				env = EnvGen.kr(Env.asr(), gate, doneAction: 2);
 				control = In.ar(inBusA, 1);
 				input = In.ar(inBusB, 1);
 				snd = Compander.ar(input, control, thresh, slopeBelow, slopeAbove, clampTime.lag(lag), relaxTime.lag(lag));
 				outSig = Splay.ar([control + snd], spread, center:LFTri.kr(lfrate));
 				Out.ar(outBus, outSig);
-				Out.ar(revOut, outSig*revAmp);
 			}).add;
 
 			SynthDef(\reverb, {
@@ -163,13 +154,14 @@ KonsertStereo {
 				Out.ar(outBus, rev);
 			}).add;
 
-			SynthDef(\delay, {
-				arg inBus, freq, atk=0.1, rel=0.5, maxdel=1.0, deltime=0.3, decay=0.5, level=0.5, gate=1;
-				var delay, input, env, klick;
-				env = EnvGen.kr(Env.asr(atk, 1, rel), gate, doneAction:2);
-				input = In.ar(inBus) * level * env;
-				delay = CombL.ar(input, maxdel, deltime, decay);
-				Out.ar(freq, delay);
+			SynthDef(\reverbVox, {
+				arg inBusVox, outBusVox, level=0.1, gate=1;
+				var inputVox, env, revVox;
+				env = EnvGen.ar(Env.asr(), gate, doneAction: 2);
+				inputVox = In.ar(inBusVox, 1) * env * level.lag(10);
+				inputVox = Pan2.ar(inputVox);
+				revVox = NHHall.ar(inputVox, 5, 0.5, 200, 0.5, 4000, 0.1, 0.5, 0.5, 0.2, 0.3);
+				Out.ar(outBusVox, revVox);
 			}).add;
 
 			SynthDef(\panAzStereo, {
@@ -190,11 +182,10 @@ KonsertStereo {
 
 			SynthDef(\stereoOut, {
 				arg inBus, outBus, gate=1, center=0.0;
-				var input, signal, env;
+				var input, env, signal;
 				env = EnvGen.kr(Env.asr(), gate, doneAction: 2);
 				input = In.ar(inBus, 1) * env;
-				signal = input;
-				signal = Splay.ar(signal, center: center);
+				signal = Splay.ar(input, center: center);
 				Out.ar(outBus, signal);
 			}).add;
 
@@ -206,14 +197,6 @@ KonsertStereo {
 				Out.ar(revOut, input*revInpAmp);
 			}).add;
 
-
-			SynthDef(\master, {
-				arg inBus, level=0.8;
-				var sig;
-				sig = In.ar(inBus, 8);
-				sig = Limiter.ar(sig, level);
-				Out.ar(0, sig);
-			}).add;
 		)
 	}
 }
